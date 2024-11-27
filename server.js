@@ -27,6 +27,12 @@ db.connect((err) => {
 });
 
 // Handle Incoming WhatsApp Messages
+
+app.get('/', (req, res) => {
+    res.send('Welcome to the back end');
+});
+
+
 app.post('/webhook', (req, res) => {
     const { Body, From } = req.body; // WhatsApp message body and sender's number
     const userMessage = Body.trim();
