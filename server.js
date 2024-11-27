@@ -38,6 +38,8 @@ app.post('/webhook', (req, res) => {
     const userMessage = Body.trim();
     const userPhone = From.replace('whatsapp:', ''); // Extract phone number
 
+    console.log('I am here');
+
     if (userMessage.toLowerCase() === 'hi') {
         sendWhatsAppMessage(userPhone, 'Welcome! Choose an option:\n1. Your Account Statement\n2. Your Balance\n3. Exit');
     } else if (userMessage === '1') {
