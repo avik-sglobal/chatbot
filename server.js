@@ -1,7 +1,7 @@
 require('dotenv').config();
 const express = require('express');
 const bodyParser = require('body-parser');
-const mysql = require('mysql');
+const mysql = require('mysql2');
 const twilio = require('twilio');
 
 // Initialize Express App
@@ -19,6 +19,7 @@ const db = mysql.createConnection({
     user: process.env.DB_USER,
     password: process.env.DB_PASSWORD,
     database: process.env.DB_NAME,
+    port: 3306,  
 });
 
 db.connect((err) => {
@@ -32,13 +33,10 @@ app.get('/', (req, res) => {
     res.send('Welcome to the back end');
 });
 
-
 app.post('/webhook', (req, res) => {
     const { Body, From } = req.body; // WhatsApp message body and sender's number
     const userMessage = Body.trim();
     const userPhone = From.replace('whatsapp:', ''); // Extract phone number
-
-    console.log('I am here');
 
     if (userMessage.toLowerCase() === 'hi') {
         sendWhatsAppMessage(userPhone, 'Welcome! Choose an option:\n1. Your Account Statement\n2. Your Balance\n3. Exit');
