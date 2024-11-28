@@ -42,10 +42,13 @@ app.post('/webhook', (req, res) => {
         sendWhatsAppMessage(userPhone, 'Welcome! Choose an option:\n1. Your Account Statement\n2. Your Balance\n3. Exit');
     } else if (userMessage === '1') {
         getAccountInfo(userPhone, 'statement', (response) => {
+            console.log(response);
             sendWhatsAppMessage(userPhone, response);
         });
     } else if (userMessage === '2') {
         getAccountInfo(userPhone, 'balance', (response) => {
+
+            console.log(response);
             sendWhatsAppMessage(userPhone, response);
         });
     } else if (userMessage === '3') {
@@ -59,20 +62,22 @@ app.post('/webhook', (req, res) => {
 
 // Function to Send WhatsApp Messages
 const sendWhatsAppMessage = (to, message) => {
-    client.messages
+/*     client.messages
         .create({
             from: `whatsapp:${TWILIO_PHONE_NUMBER}`,
             body: message,
             to: `whatsapp:${to}`,
         })
         .then((message) => console.log(`Message sent: ${message.sid}`))
-        .catch((err) => console.error(err));
+        .catch((err) => console.error(err)); */
 };
 
 // Function to Get Account Information from Database
 const getAccountInfo = (phone, field, callback) => {
     const query = `SELECT ${field} FROM accounts WHERE phone_number = ?`;
     db.query(query, [phone], (err, results) => {
+        console.log(results);
+
         if (err) {
             console.error(err);
             callback('Error fetching account details.');
