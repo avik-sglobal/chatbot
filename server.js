@@ -1,100 +1,136 @@
-require('dotenv').config();
-const express = require('express');
-const bodyParser = require('body-parser');
-const mysql = require('mysql2');
-const twilio = require('twilio');
+const express = require("express");
+const mongoose = require("mongoose");
+const { MessagingResponse } = require("twilio").twiml; // Correct import for MessagingResponse
+const twilio = require("twilio");
+require("dotenv").config();
 
 // Initialize Express App
 const app = express();
-app.use(bodyParser.json());
-app.use(bodyParser.urlencoded({ extended: true }));
+
+// Middleware for parsing JSON and URL-encoded data
+app.use(express.json());
+app.use(express.urlencoded({ extended: true }));
 
 // Twilio Configuration
-const client = twilio(process.env.TWILIO_ACCOUNT_SID, process.env.TWILIO_AUTH_TOKEN);
-const TWILIO_PHONE_NUMBER = process.env.TWILIO_PHONE_NUMBER; 
+const accountSid = process.env.TWILIO_ACCOUNT_SID;
+const authToken = process.env.TWILIO_AUTH_TOKEN;
+const twilioPhoneNumber = process.env.TWILIO_PHONE_NUMBER; // Your Twilio WhatsApp number
+const client = twilio(accountSid, authToken);
 
-// MySQL Database Connection
-const db = mysql.createConnection({
-    host: process.env.DB_HOST,
-    user: process.env.DB_USER,
-    password: process.env.DB_PASSWORD,
-    database: process.env.DB_NAME,
-    port: 3306,  
+// MongoDB Connection
+mongoose
+  .connect(process.env.MONGO_URI, { useNewUrlParser: true, useUnifiedTopology: true })
+  .then(() => console.log("MongoDB connected successfully"))
+  .catch((err) => console.error("MongoDB connection error:", err));
+
+// Define the User Schema for MongoDB
+const userSchema = new mongoose.Schema({
+  name: String,
+  phone: String,
+  accountBalance: Number,
+  transactions: [
+    {
+      date: String,
+      description: String,
+      amount: Number,
+    },
+  ],
 });
 
-db.connect((err) => {
-    if (err) throw err;
-    console.log('Database connected!');
-});
+const User = mongoose.model("account_details", userSchema);
 
-// Handle Incoming WhatsApp Messages
+// Webhook Endpoint for WhatsApp
+app.post("/webhook", async (req, res) => {
 
-app.get('/', (req, res) => {
-    res.send('Welcome to the back end');
-});
+    console.log("Request received:", req.body);
 
-app.post('/webhook', (req, res) => {
-    const { Body, From } = req.body; // WhatsApp message body and sender's number
-    const userMessage = Body.trim();
-    const userPhone = From.replace('whatsapp:', ''); // Extract phone number
+  const incomingMessage = req.body.Body.trim(); // Message text from the user
+  const userPhone = req.body.From.replace("whatsapp:", ""); // Extract WhatsApp phone number
 
-    if (userMessage.toLowerCase() === 'hi') {
-        sendWhatsAppMessage(userPhone, 'Welcome! Choose an option:\n1. Your Account Statement\n2. Your Balance\n3. Exit');
-    } else if (userMessage === '1') {
-        getAccountInfo(userPhone, 'statement', (response) => {
-            console.log(response);
-            sendWhatsAppMessage(userPhone, response);
-        });
-    } else if (userMessage === '2') {
-        getAccountInfo(userPhone, 'balance', (response) => {
+  const twiml = new MessagingResponse(); // For constructing a Twilio-friendly response
 
-            console.log(response);
-            sendWhatsAppMessage(userPhone, response);
-        });
-    } else if (userMessage === '3') {
-        sendWhatsAppMessage(userPhone, 'Goodbye! Have a great day!');
-    } else {
-        sendWhatsAppMessage(userPhone, 'Invalid option. Please type "Hi" to start again.');
+  try {
+    // Fetch the user from MongoDB using the phone number
+    let user = await User.findOne({ phone: userPhone });
+    console.log('Phone Number: ',userPhone);
+    console.log(user);
+
+    if (!user) {
+      // If the user doesn't exist, create a new user
+      user = new User({
+        name: "New User",
+        phone: userPhone,
+        accountBalance: 0,
+        transactions: [],
+      });
+      await user.save();
+
+      // Send a welcome message via Twilio
+      const welcomeMessage =
+        "Welcome to the chatbot! Your account has been created. Reply with:\n1. Account Statement\n2. Balance\n3. Exit";
+      client.messages.create({
+        body: welcomeMessage,
+        from: `whatsapp:${twilioPhoneNumber}`,
+        to: `whatsapp:${userPhone}`,
+      });
+
+      return res.status(200).send("Welcome message sent.");
     }
 
-    res.sendStatus(200);
+    // Handle user responses
+    switch (incomingMessage) {
+      case "1": // Account Statement
+        const statement = user.transactions.length > 0 ? user.transactions
+                .map((t) => `${t.date}: ${t.description} - $${t.amount}`)
+                .join("\n")
+            : "No transactions found.";
+
+/*         client.messages.create({
+          body: `Your Account Statement:\n${statement}`,
+          from: `whatsapp:${twilioPhoneNumber}`,
+          to: `whatsapp:${userPhone}`,
+        }); */
+
+        break;
+
+      case "2": // Account Balance
+
+      console.log(`Your Account Balance is $${user.accountBalance}`);
+/*         client.messages.create({
+          body: `Your Account Balance is $${user.accountBalance}`,
+          from: `whatsapp:${twilioPhoneNumber}`,
+          to: `whatsapp:${userPhone}`,
+        }); */
+
+        break;
+
+      case "3": // Exit
+/*         client.messages.create({
+          body: "Thank you for using the chatbot! Goodbye.",
+          from: `whatsapp:${twilioPhoneNumber}`,
+          to: `whatsapp:${userPhone}`,
+        }); */
+
+        break;
+
+      default:
+        // Invalid input
+/*         client.messages.create({
+          body: "Invalid option. Reply with:\n1. Account Statement\n2. Balance\n3. Exit",
+          from: `whatsapp:${twilioPhoneNumber}`,
+          to: `whatsapp:${userPhone}`,
+        }); */
+
+    }
+
+    res.status(200).send("Message processed2.");
+  } catch (err) {
+    console.error("Error handling message:", err);
+    twiml.message("Sorry, something went wrong. Please try again later.");
+    res.status(500).type("text/xml").send(twiml.toString());
+  }
 });
-
-// Function to Send WhatsApp Messages
-const sendWhatsAppMessage = (to, message) => {
-/*     client.messages
-        .create({
-            from: `whatsapp:${TWILIO_PHONE_NUMBER}`,
-            body: message,
-            to: `whatsapp:${to}`,
-        })
-        .then((message) => console.log(`Message sent: ${message.sid}`))
-        .catch((err) => console.error(err)); */
-};
-
-// Function to Get Account Information from Database
-const getAccountInfo = (phone, field, callback) => {
-    const query = `SELECT ${field} FROM accounts WHERE phone_number = ?`;
-    db.query(query, [phone], (err, results) => {
-        console.log(results);
-
-        if (err) {
-            console.error(err);
-            callback('Error fetching account details.');
-        } else if (results.length > 0) {
-            if (field === 'statement') {
-                callback(`Your account statement: ${results[0].statement}`);
-            } else if (field === 'balance') {
-                callback(`Your account balance: $${results[0].balance}`);
-            }
-        } else {
-            callback('Account not found. Please contact support.');
-        }
-    });
-};
 
 // Start the Server
 const PORT = process.env.PORT || 3000;
-app.listen(PORT, () => {
-    console.log(`Server running on port ${PORT}`);
-});
+app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
