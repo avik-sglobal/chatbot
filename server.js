@@ -85,41 +85,41 @@ app.post("/webhook", async (req, res) => {
                 .join("\n")
             : "No transactions found.";
 
-/*         client.messages.create({
+        client.messages.create({
           body: `Your Account Statement:\n${statement}`,
           from: `whatsapp:${twilioPhoneNumber}`,
           to: `whatsapp:${userPhone}`,
-        }); */
+        });
 
         break;
 
       case "2": // Account Balance
 
       console.log(`Your Account Balance is $${user.accountBalance}`);
-/*         client.messages.create({
+        client.messages.create({
           body: `Your Account Balance is $${user.accountBalance}`,
           from: `whatsapp:${twilioPhoneNumber}`,
           to: `whatsapp:${userPhone}`,
-        }); */
+        });
 
         break;
 
       case "3": // Exit
-/*         client.messages.create({
+        client.messages.create({
           body: "Thank you for using the chatbot! Goodbye.",
           from: `whatsapp:${twilioPhoneNumber}`,
           to: `whatsapp:${userPhone}`,
-        }); */
+        });
 
         break;
 
       default:
         // Invalid input
-/*         client.messages.create({
+        client.messages.create({
           body: "Invalid option. Reply with:\n1. Account Statement\n2. Balance\n3. Exit",
           from: `whatsapp:${twilioPhoneNumber}`,
           to: `whatsapp:${userPhone}`,
-        }); */
+        });
 
     }
 
